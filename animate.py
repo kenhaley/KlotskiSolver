@@ -2,7 +2,8 @@ import pygame as pg
 import os
 from classes import Tile, Board, Vertex
 
-LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 
 def animate_solution(board, tiles, move_list):
     pg.init()
@@ -13,26 +14,26 @@ def animate_solution(board, tiles, move_list):
     fps = 60
     board.cell_size = 100
     board.cell_spacing = 20
-    board.height = len(board.arr)-2
-    board.width = len(board.arr[0])-2
+    board.height = len(board.arr) - 2
+    board.width = len(board.arr[0]) - 2
     frame_height = board.cell_size * board.height + board.cell_spacing * (board.height)
     frame_width = board.cell_size * board.width + board.cell_spacing * (board.width)
 
     # draw background & board based on board size...
-    frame = pg.Rect(10,10, frame_width, frame_height)
+    frame = pg.Rect(10, 10, frame_width, frame_height)
     screen_size = scr_w, scr_h = (frame_width + 20, frame_height + 20)
-    os.environ['SDL_VIDEO_WINDOW_POS'] = f'{pg.display.Info().current_w - scr_w - 10},40'
+    os.environ[
+        "SDL_VIDEO_WINDOW_POS"
+    ] = f"{pg.display.Info().current_w - scr_w - 10},40"
     background = pg.Surface(screen_size)
-    background.fill('BLACK')
-    pg.draw.rect(background, (50,50,50), frame)
+    background.fill("BLACK")
+    pg.draw.rect(background, (50, 50, 50), frame)
     pg.display.set_caption("Klotski")
     screen = pg.display.set_mode(screen_size)
-    screen.blit(background, (0,0))
-
-
+    screen.blit(background, (0, 0))
 
     running = True
-    speed = 0 # User must press space to start.
+    speed = 0  # User must press space to start.
     while running:
         for event in pg.event.get():
             if event.type == pg.QUIT:
@@ -52,24 +53,33 @@ def animate_solution(board, tiles, move_list):
                         fps = 1
         if not running:
             break
-        screen.blit(background, (0,0))
+        screen.blit(background, (0, 0))
         draw_tiles(screen, board, tiles)
         pg.display.update()
         pg.time.Clock().tick(fps)
     pg.quit()
     return
 
+
 def draw_tiles(screen, board, tiles):
-    for row in range(board.height):
-        for col in range(board.width):
-            left = col * board.cell_size + board.cell_spacing * (col+1)
-            top = row * board.cell_size + board.cell_spacing * (row+1)
-            width = height = board.cell_size
-            test = pg.Rect(left, top, width, height)
-            pg.draw.rect(screen,"RED", test)
+    # for row in range(board.height):
+    #     for col in range(board.width):
+    #         left = col * board.cell_size + board.cell_spacing * (col + 1)
+    #         top = row * board.cell_size + board.cell_spacing * (row + 1)
+    #         width = height = board.cell_size
+    #         pg.draw.rect(screen, "RED", pg.Rect(left, top, width, height))
 
-
-
+    for _, tile in tiles.items():
+        color = (180, 150, 100)
+        if tile.id == "A":
+            color = "RED"
+        col, row = tile.c - 1, tile.r - 1
+        left = col * board.cell_size + board.cell_spacing * (col + 1)
+        top = row * board.cell_size + board.cell_spacing * (row + 1)
+        width = board.cell_size * (tile.w) + board.cell_spacing * (tile.w - 1)
+        height = board.cell_size * (tile.h) + board.cell_spacing * (tile.h - 1)
+        rect = pg.Rect(left, top, width, height)
+        pg.draw.rect(screen, color, rect)
 
 
 if __name__ == "__main__":
@@ -84,7 +94,9 @@ if __name__ == "__main__":
 . BC .
 ......
 """
-    setup_array = [x for x in setup_string.split('\n') if x.strip() != '']  # dropping empty lines
+    setup_array = [
+        x for x in setup_string.split("\n") if x.strip() != ""
+    ]  # dropping empty lines
 
     h = len(setup_array)
     w = len(setup_array[0])
@@ -98,5 +110,5 @@ if __name__ == "__main__":
             h, w = lower_right[0] - r + 1, lower_right[1] - c + 1
             tiles[id] = Tile(id, r, c, h, w)
 
-    move_list = [('B', 'L'), ('C', 'R'), ('A', 'D')]
+    move_list = [("B", "L"), ("C", "R"), ("A", "D")]
     animate_solution(board, tiles, move_list)

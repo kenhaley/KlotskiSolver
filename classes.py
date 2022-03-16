@@ -1,7 +1,9 @@
 from collections import defaultdict
-LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
-class Tile():
+LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+class Tile:
     def __init__(self, id: str, r: str, c: str, h: str, w: str):
         self.id = id
         self.r = r
@@ -10,21 +12,21 @@ class Tile():
         self.w = w
 
     def __str__(self):
-        return self.id + ':' + self.picture()
+        return self.id + ":" + self.picture()
 
     def __repr__(self):
-        return f'Tile(\'{self.id}\',{self.r},{self.c},{self.h},{self.w})'
+        return f"Tile('{self.id}',{self.r},{self.c},{self.h},{self.w})"
 
     def picture(self) -> str:
         """ includes the id """
-        return f'{self.id}.{self.r}.{self.c}.{self.h}.{self.w}'
+        return f"{self.id}.{self.r}.{self.c}.{self.h}.{self.w}"
 
     def anon_picture(self) -> str:
         """ excludes the id """
-        return f'{self.r}.{self.c}.{self.h}.{self.w}'
+        return f"{self.r}.{self.c}.{self.h}.{self.w}"
 
 
-class Board():
+class Board:
     def __init__(self, setup_array):
         self.tile_loc = defaultdict(list)
         self.arr = []
@@ -39,17 +41,19 @@ class Board():
     def draw(self):
         for row in self.arr:
             for cell in row:
-                print(cell, end=' ')
+                print(cell, end=" ")
             print()
 
 
-class Vertex():
-    '''
+class Vertex:
+    """
     For BFS.  Treating each board position (state) as a vertex in a Graph
-    '''
+    """
 
     # def __init__(self, id: int, parent_id: int, dir:str, state: str, a_loc: tuple):
-    def __init__(self, id: int, parent_id: int, tile_id: str, dir: str, state: str, pickled: str):
+    def __init__(
+        self, id: int, parent_id: int, tile_id: str, dir: str, state: str, pickled: str
+    ):
         self.id = id
         self.parent_id = parent_id
         self.tile_id = tile_id

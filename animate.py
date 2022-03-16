@@ -22,9 +22,7 @@ def animate_solution(board, tiles, move_list):
     # draw background & board based on board size...
     frame = pg.Rect(10, 10, frame_width, frame_height)
     screen_size = scr_w, scr_h = (frame_width + 20, frame_height + 20)
-    os.environ[
-        "SDL_VIDEO_WINDOW_POS"
-    ] = f"{pg.display.Info().current_w - scr_w - 10},40"
+    os.environ["SDL_VIDEO_WINDOW_POS"] = f"{pg.display.Info().current_w - scr_w - 10},40"
     background = pg.Surface(screen_size)
     background.fill("BLACK")
     pg.draw.rect(background, (50, 50, 50), frame)

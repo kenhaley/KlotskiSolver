@@ -10,6 +10,10 @@ class Tile:
         self.c = c
         self.h = h
         self.w = w
+        if id == "A":
+            self.color = "RED"
+        else:
+            self.color = (200, 150, 100)
 
     def __str__(self):
         return self.id + ":" + self.picture()
@@ -36,6 +40,13 @@ class Board:
                 self.arr[i].append(cell)
                 if cell in LETTERS:
                     self.tile_loc[cell].append((i, j))
+        # Drawing/animation specs:
+        self.cell_size = 100
+        self.cell_spacing = 20
+        self.height = len(self.arr) - 2
+        self.width = len(self.arr[0]) - 2
+        self.frame_height = self.cell_size * self.height + self.cell_spacing * (self.height)
+        self.frame_width = self.cell_size * self.width + self.cell_spacing * (self.width)
         return
 
     def draw(self):
@@ -51,9 +62,7 @@ class Vertex:
     """
 
     # def __init__(self, id: int, parent_id: int, dir:str, state: str, a_loc: tuple):
-    def __init__(
-        self, id: int, parent_id: int, tile_id: str, dir: str, state: str, pickled: str
-    ):
+    def __init__(self, id: int, parent_id: int, tile_id: str, dir: str, state: str, pickled: str):
         self.id = id
         self.parent_id = parent_id
         self.tile_id = tile_id

@@ -6,22 +6,17 @@ LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 def animate_solution(board, tiles, move_list):
+    global pg
     pg.init()
     # calculate screen size and draw screen and board.
 
     # specs...
     tile_speed = 1
-    fps = 60
-    board.cell_size = 100
-    board.cell_spacing = 20
-    board.height = len(board.arr) - 2
-    board.width = len(board.arr[0]) - 2
-    frame_height = board.cell_size * board.height + board.cell_spacing * (board.height)
-    frame_width = board.cell_size * board.width + board.cell_spacing * (board.width)
+    fps = 120
 
     # draw background & board based on board size...
-    frame = pg.Rect(10, 10, frame_width, frame_height)
-    screen_size = scr_w, scr_h = (frame_width + 20, frame_height + 20)
+    frame = pg.Rect(10, 10, board.frame_width, board.frame_height)
+    screen_size = scr_w, scr_h = (board.frame_width + 20, board.frame_height + 20)
     os.environ["SDL_VIDEO_WINDOW_POS"] = f"{pg.display.Info().current_w - scr_w - 10},40"
     background = pg.Surface(screen_size)
     background.fill("BLACK")
@@ -31,7 +26,7 @@ def animate_solution(board, tiles, move_list):
     screen.blit(background, (0, 0))
 
     running = True
-    speed = 0  # User must press space to start.
+    paused = True
     while running:
         for event in pg.event.get():
             if event.type == pg.QUIT:
@@ -40,26 +35,19 @@ def animate_solution(board, tiles, move_list):
                 if event.key == pg.K_ESCAPE:
                     running = False
                 if event.key == pg.K_SPACE:
-                    speed = tile_speed - speed  # toggle speed between 0 and TILE_SPEED
-                if event.key == pg.K_UP:
-                    fps += 50
-                    if fps > 1000:
-                        fps = 1000
-                if event.key == pg.K_DOWN:
-                    fps -= 50
-                    if fps < 1:
-                        fps = 1
+                    paused = not paused
         if not running:
             break
         screen.blit(background, (0, 0))
-        draw_tiles(screen, board, tiles)
+        draw_tiles(screen, board, tiles, move_list, paused, fps)
         pg.display.update()
         pg.time.Clock().tick(fps)
     pg.quit()
     return
 
 
-def draw_tiles(screen, board, tiles):
+def draw_tiles(screen, board, tiles, move_list, paused, fps):
+    global pg
     # for row in range(board.height):
     #     for col in range(board.width):
     #         left = col * board.cell_size + board.cell_spacing * (col + 1)
@@ -67,17 +55,44 @@ def draw_tiles(screen, board, tiles):
     #         width = height = board.cell_size
     #         pg.draw.rect(screen, "RED", pg.Rect(left, top, width, height))
 
-    for _, tile in tiles.items():
-        color = (180, 150, 100)
-        if tile.id == "A":
-            color = "RED"
+    for id, tile in tiles.items():
         col, row = tile.c - 1, tile.r - 1
-        left = col * board.cell_size + board.cell_spacing * (col + 1)
-        top = row * board.cell_size + board.cell_spacing * (row + 1)
-        width = board.cell_size * (tile.w) + board.cell_spacing * (tile.w - 1)
-        height = board.cell_size * (tile.h) + board.cell_spacing * (tile.h - 1)
-        rect = pg.Rect(left, top, width, height)
-        pg.draw.rect(screen, color, rect)
+        tile.pixleft = col * board.cell_size + board.cell_spacing * (col + 1)
+        tile.pixtop = row * board.cell_size + board.cell_spacing * (row + 1)
+        tile.pixwidth = board.cell_size * (tile.w) + board.cell_spacing * (tile.w - 1)
+        tile.pixheight = board.cell_size * (tile.h) + board.cell_spacing * (tile.h - 1)
+        rect = pg.Rect(tile.pixleft, tile.pixtop, tile.pixwidth, tile.pixheight)
+        pg.draw.rect(screen, tile.color, rect)
+    if not paused and len(move_list) > 0:
+        # get next move from move list and move the tile.
+        id, dir = move_list.pop(0)
+        tile = tiles[id]
+        if dir == "U":
+            tile.r -= 1
+        if dir == "D":
+            tile.r += 1
+        if dir == "L":
+            tile.c -= 1
+        if dir == "R":
+            tile.c += 1
+        step = (board.cell_size + board.cell_spacing) / 50
+        for i in range(50):
+            # erase where it is
+            rect = pg.Rect(tile.pixleft, tile.pixtop, tile.pixwidth, tile.pixheight)
+            pg.draw.rect(screen, (50, 50, 50), rect)
+            # move one step and redraw
+            if dir == "U":
+                tile.pixtop -= step
+            if dir == "D":
+                tile.pixtop += step
+            if dir == "L":
+                tile.pixleft -= step
+            if dir == "R":
+                tile.pixleft += step
+            rect = pg.Rect(tile.pixleft, tile.pixtop, tile.pixwidth, tile.pixheight)
+            pg.draw.rect(screen, tile.color, rect)
+            pg.display.update()
+            pg.time.Clock().tick(fps)
 
 
 if __name__ == "__main__":
@@ -92,9 +107,7 @@ if __name__ == "__main__":
 . BC .
 ......
 """
-    setup_array = [
-        x for x in setup_string.split("\n") if x.strip() != ""
-    ]  # dropping empty lines
+    setup_array = [x for x in setup_string.split("\n") if x.strip() != ""]  # dropping empty lines
 
     h = len(setup_array)
     w = len(setup_array[0])

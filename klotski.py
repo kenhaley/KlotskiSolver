@@ -203,9 +203,7 @@ def solve_BFS():
 def main():
     global board, tiles, initial_state
     os.chdir(sys.path[0])  # make current dir = folder containing this script
-    setup_array = [
-        x for x in setup_string.split("\n") if x.strip() != ""
-    ]  # dropping empty lines
+    setup_array = [x for x in setup_string.split("\n") if x.strip() != ""]  # dropping empty lines
 
     h = len(setup_array)
     w = len(setup_array[0])

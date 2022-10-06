@@ -1,11 +1,15 @@
-from collections import defaultdict
+from collections import defaultdict, deque
+from random import randint
+from random import random
 import pygame as pg
 import os
 import sys
 import pickle
+import string
 
+k = randint(1, 2)
 
-LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+LETTERS = string.ascii_uppercase
 MOVE_DICT = {
     "L": (0, -1),
     "R": (0, 1),
@@ -16,31 +20,29 @@ MOVE_DICT = {
     "U2": (-2, 0),
     "D2": (2, 0),
 }
+# Each tuple in this dict is (dc, dr); i.e., distance in rows, columns measured in cells.
 BACKDICT = {"D": "U", "U": "D", "L": "R", "R": "L", "D2": "U2", "U2": "D2", "L2": "R2", "R2": "L2"}
-# Used in backtrack() to reverse move.
+# Used to reverse a move.
 
+# """ simple version..."""
+# setup_string = """
+# ......
+# ..AA..
+# ..AA..
+# . BC .
+# ......
+# """
+# goal = (2, 2)  # winning location for A tile (upper left)
 
-""" simple version..."""
-setup_string = """
-......
-..AA..
-..AA..
-.BC  .
-......
-"""
-goal = (2, 2)  # winning location for A tile (upper left)
-
-
-""" Simple version 2..."""
-setup_string = """
-......
-. AA .
-.DAAE.
-.FBCG.
-......
-"""
-goal = (2, 2)  # winning location for A tile (upper left)
-
+# """ Simple version 2..."""
+# setup_string = """
+# ......
+# . AA .
+# .DAAE.
+# .FBCG.
+# ......
+# """
+# goal = (2, 2)  # winning location for A tile (upper left)
 
 """ Difficult version """
 setup_string = """
@@ -55,42 +57,35 @@ setup_string = """
 goal = (4, 2)  # winning location for A tile (upper left)
 
 
-tiles = {}
-current_path = []
-dead_ends = []
-move_list = []
-stack_depth = 0
-
-
 class Tile:
-    def __init__(self, id: str, r: str, c: str, h: str, w: str):
+    def __init__(self, id: str, r: int, c: int, h: int, w: int) -> None:
         self.id = id
-        self.r = r
-        self.c = c
-        self.h = h
-        self.w = w
+        self.r = r  # upper-left row
+        self.c = c  # upper-left column
+        self.h = h  # height
+        self.w = w  # width
         if id == "A":
             self.color = "RED"
         else:
             self.color = (200, 150, 100)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.id + ":" + self.picture()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Tile('{self.id}',{self.r},{self.c},{self.h},{self.w})"
 
     def picture(self) -> str:
-        """ includes the id """
+        """includes the id"""
         return f"{self.id}.{self.r}.{self.c}.{self.h}.{self.w}"
 
     def anon_picture(self) -> str:
-        """ excludes the id """
+        """excludes the id"""
         return f"{self.r}.{self.c}.{self.h}.{self.w}"
 
 
 class Board:
-    def __init__(self, setup_array):
+    def __init__(self, setup_array: list[str]) -> None:
         self.tile_loc = defaultdict(list)
         self.arr = []
         for i, row in enumerate(setup_array):
@@ -108,7 +103,7 @@ class Board:
         self.frame_width = self.cell_size * self.width + self.cell_spacing * (self.width)
         return
 
-    def draw(self):
+    def draw(self) -> None:
         for row in self.arr:
             for cell in row:
                 print(cell, end=" ")
@@ -117,21 +112,21 @@ class Board:
 
 class Vertex:
     """
-    For BFS.  Treating each board position (state) as a vertex in a Graph
+    Each board position is a vertex in a Graph for BFS solving.
     """
 
-    # def __init__(self, id: int, parent_id: int, dir:str, state: str, a_loc: tuple):
-    def __init__(self, id: int, parent_id: int, tile_id: str, dir: str, state: str, pickled: str):
+    def __init__(
+        self, id: int, parent_id: int | None, tile_id: str, dir: str, state: str, pickled: bytes
+    ) -> None:
         self.id = id
         self.parent_id = parent_id
         self.tile_id = tile_id
         self.dir = dir  # direction to get here from parent
         self.state = state
         self.pickled = pickled  # pickled tuple of (board, tiles)
-        # self.a_loc = a_loc  # (row, col) of the A-tile upper left
 
 
-def is_move_legal(tile: Tile, dir: str) -> bool:
+def is_move_legal(board: Board, tile: Tile, dir: str) -> bool:
     """
     Check to see if this is a legal move--not blocked by border or other tiles.
     """
@@ -171,7 +166,7 @@ def is_move_legal(tile: Tile, dir: str) -> bool:
     return True
 
 
-def make_move(tile: Tile, dir: str):
+def make_move(board: Board, tile: Tile, dir: str) -> None:
     """
     update tile and board to reflect this move
     """
@@ -189,47 +184,17 @@ def make_move(tile: Tile, dir: str):
             board.arr[row][col] = tile.id
 
 
-def state() -> str:
+def state(tiles: dict) -> str:
     """
     Returns a string that reflects the state of the board.
     Used to detect if it's been seen/visited before
     """
     # excludes the tile_id (e.g., if two identically shaped tiles swap positions, that's the same state)
-    temp = [tile.anon_picture() for _, tile in tiles.items()]
+    temp = [tile.anon_picture() for tile in tiles.values()]
     return "|".join(x for x in sorted(temp))
 
 
-def solve_DFS():
-    # Depth-first search (non-recursive)
-    dir = None
-    back_dir = None
-    while True:
-        for id, tile in tiles.items():
-            for dir in ("U", "D", "L", "R"):
-                if not is_move_legal(tile, dir):
-                    continue
-                make_move(tile, dir)
-                back_dir = BACKDICT[dir]
-                cur_state = state()
-                if id == "A" and (tile.r, tile.c) == goal:
-                    current_path.append(cur_state)
-                    move_list.append((tile.id, dir))
-                    return True  # solution found!
-                if cur_state in current_path or cur_state in dead_ends:
-                    make_move(tile, back_dir)  # move back
-                else:
-                    current_path.append(cur_state)
-                    move_list.append((tile.id, dir))
-                    return False  # tell caller to keep going from the new position
-        # at this point we've detected a dead end...
-        dead_ends.append(state())
-        last_id, last_dir = move_list.pop()
-        make_move(tiles[last_id], BACKDICT[last_dir])
-        current_path.pop()
-        return False  # keep going
-
-
-def solve_BFS():
+def solve_BFS(initial_state, board: Board, tiles: dict) -> None | tuple:
     """
     From Wikipedia Breadth First Search algorithm...
     1  procedure BFS(G, root) is
@@ -246,8 +211,6 @@ def solve_BFS():
     12                  Q.enqueue(w)
     """
 
-    global initial_state, board, tiles
-
     verts = {}  # dictionary of vertices; keys assigned are 0,1,2,3...
     # verts[0] is the root (initial state)
     t = tiles["A"]
@@ -255,34 +218,35 @@ def solve_BFS():
 
     verts[0] = v = Vertex(0, None, "", "", initial_state, pickled)
     next_v_id = 0
-    """ let Q be a queue """  # see below
-    """ label root as explored"""
+    """ let Q be a queue """
+    Q = deque()
+    """ label root as explored """
     explored = {v.state}  # using set for fast searching...
     """ Q.enqueue(root) """
-    Q = [v]
+    Q.append(v)
     """ while Q is not empty do """
     while len(Q) > 0:
-        """ v := Q.dequeue()"""
-        v = Q.pop(0)
+        """v := Q.dequeue()"""
+        v = Q.popleft()
         # now we have to set the board and tiles to match what's in v...
         board, tiles = pickle.loads(v.pickled)
         """ if v is the goal then """
         t = tiles["A"]
         if (t.r, t.c) == goal:
-            """ return v """
+            """return v"""
             return (
                 verts,
                 v.id,
             )  # we return the verts dict, and the id of the vertex that reached the goal.
         """ for all edges from v to w in G.adjacentEdges(v) do """
         for tile_id, tile in tiles.items():
-            for dir in ("U", "D", "L", "R", "U2", "D2", "L2", "R2"):
-                if is_move_legal(tile, dir):
-                    make_move(tile, dir)
-                    cur_state = state()
+            for dir in MOVE_DICT:
+                if is_move_legal(board, tile, dir):
+                    make_move(board, tile, dir)
+                    cur_state = state(tiles)
                     """ if w is not labeled as explored then """
                     if cur_state not in explored:
-                        """ label w as explored """
+                        """label w as explored"""
                         next_v_id += 1
                         pickled = pickle.dumps((board, tiles))
                         verts[next_v_id] = w = Vertex(
@@ -291,88 +255,21 @@ def solve_BFS():
                         explored.add(cur_state)
                         """ Q.enqueue(w) """
                         Q.append(w)
-                    make_move(tile, BACKDICT[dir])  # move back
+                    make_move(board, tile, BACKDICT[dir])  # move back
     return None
 
 
-def main():
-    global board, tiles, initial_state
-    os.chdir(sys.path[0])  # make current dir = folder containing this script
-    setup_array = [x for x in setup_string.split("\n") if x.strip() != ""]  # dropping empty lines
-
-    h = len(setup_array)
-    w = len(setup_array[0])
-    board = Board(setup_array)
-
-    # Create tiles...
-    for id in LETTERS:
-        if x := board.tile_loc.get(id):
-            upper_left, lower_right = x[0], x[-1]
-            r, c = upper_left
-            h, w = lower_right[0] - r + 1, lower_right[1] - c + 1
-            tiles[id] = Tile(id, r, c, h, w)
-
-    board.draw()
-    init_pickle = pickle.dumps((board, tiles))
-    ### Depth first... ###############
-    # initial_state = state()
-    # current_path.append(initial_state)  # Initialize current_path with the initial state
-    # while True:
-    #     solution_found = solve_DFS()
-    #     if solution_found:
-    #         break
-    #     if state() == initial_state:
-    #         print("no solution")
-    #         break
-    ##################################
-
-    ### Breadth first... #############
-    initial_state = state()
-    solution_found = solve_BFS()
-    if solution_found:
-        move_list = []
-        verts, id = solution_found
-        # Build the move_list from goal (v) back to parent...
-        while id:
-            v = verts[id]
-            move_list.insert(0, (v.tile_id, v.dir))
-            id = v.parent_id
-        print(f"BFS Graph: {len(verts)} vertices created")
-    else:
-        print("no solution")
-    ##################################
-
-    if solution_found:
-        print("Solution found...")
-        print(f"{len(move_list)} moves.")
-        dd = {
-            "L": "<",
-            "R": ">",
-            "U": "^",
-            "D": "v",
-            "L2": "<<",
-            "R2": ">>",
-            "U2": "^^",
-            "D2": "vv",
-        }
-        for x, y in move_list:
-            print(f"{x}{dd[y]}", end=" ")
-        print()
-        board.draw()
-        board, tiles = pickle.loads(init_pickle)
-        animate_solution(board, tiles, move_list)
-
-    print("done")
-
-
-def animate_solution(board, tiles, move_list):
-    global pg
+def animate_solution(board: Board, tiles: dict, move_list: list[tuple]) -> None:
+    """Show the solution using pygame"""
     pg.init()
     # calculate screen size and draw screen and board.
 
     # specs...
     tile_speed = 1
     fps = 120
+
+    # Assume that the final move is for tile A to move 2 positions down...
+    move_list.append(("A", "D2"))
 
     # draw background & board based on board size...
     frame = pg.Rect(10, 10, board.frame_width, board.frame_height)
@@ -389,13 +286,14 @@ def animate_solution(board, tiles, move_list):
     paused = True
     while running:
         for event in pg.event.get():
-            if event.type == pg.QUIT:
-                running = False
-            if event.type == pg.KEYDOWN:
-                if event.key == pg.K_ESCAPE:
-                    running = False
-                if event.key == pg.K_SPACE:
-                    paused = not paused
+            # fmt: off
+            match event.type:
+                case pg.QUIT: running = False
+                case pg.KEYDOWN:
+                    match event.key:
+                        case pg.K_ESCAPE: running = False
+                        case pg.K_SPACE: paused = not paused
+            # fmt: on
         if not running:
             break
         screen.blit(background, (0, 0))
@@ -406,15 +304,15 @@ def animate_solution(board, tiles, move_list):
     return
 
 
-def draw_tiles(screen, board, tiles, move_list, paused, fps):
-    global pg
+def draw_tiles(
+    screen: pg.surface.Surface, board: Board, tiles: dict, move_list: list[tuple], paused, fps
+):
     # for row in range(board.height):
     #     for col in range(board.width):
     #         left = col * board.cell_size + board.cell_spacing * (col + 1)
     #         top = row * board.cell_size + board.cell_spacing * (row + 1)
     #         width = height = board.cell_size
     #         pg.draw.rect(screen, "RED", pg.Rect(left, top, width, height))
-
     for id, tile in tiles.items():
         col, row = tile.c - 1, tile.r - 1
         tile.pixleft = col * board.cell_size + board.cell_spacing * (col + 1)
@@ -427,44 +325,98 @@ def draw_tiles(screen, board, tiles, move_list, paused, fps):
         # get next move from move list and move the tile.
         id, dir = move_list.pop(0)
         tile = tiles[id]
-        if dir == "U":
-            tile.r -= 1
-        if dir == "D":
-            tile.r += 1
-        if dir == "L":
-            tile.c -= 1
-        if dir == "R":
-            tile.c += 1
-        if dir == "U2":
-            tile.r -= 2
-        if dir == "D2":
-            tile.r += 2
-        if dir == "L2":
-            tile.c -= 2
-        if dir == "R2":
-            tile.c += 2
+        # fmt: off
+        match dir:
+            case "U":  tile.r -= 1
+            case "D":  tile.r += 1
+            case "L":  tile.c -= 1
+            case "R":  tile.c += 1
+            case "U2": tile.r -= 2
+            case "D2": tile.r += 2
+            case "L2": tile.c -= 2
+            case "R2": tile.c += 2
+        # fmt: on
         num_steps = 50
         step = (board.cell_size + board.cell_spacing) / num_steps
         if dir in ("U2", "D2", "L2", "R2"):
             dir = dir[0]
-            num_steps *= 2
+            # num_steps *= 2
+            step *= 2  # double move; go twice as fast
         for i in range(num_steps):
             # erase where it is
             rect = pg.Rect(tile.pixleft, tile.pixtop, tile.pixwidth, tile.pixheight)
             pg.draw.rect(screen, (50, 50, 50), rect)
-            # move one step and redraw
-            if dir == "U":
-                tile.pixtop -= step
-            if dir == "D":
-                tile.pixtop += step
-            if dir == "L":
-                tile.pixleft -= step
-            if dir == "R":
-                tile.pixleft += step
+            # move and redraw
+            # fmt: off
+            match dir:
+                case "U": tile.pixtop -= step
+                case "D": tile.pixtop += step
+                case "L": tile.pixleft -= step
+                case "R": tile.pixleft += step
+            # fmt: on
             rect = pg.Rect(tile.pixleft, tile.pixtop, tile.pixwidth, tile.pixheight)
             pg.draw.rect(screen, tile.color, rect)
             pg.display.update()
             pg.time.Clock().tick(fps)
+        if len(move_list) == 0:
+            print("animation done")
+
+
+def main() -> None:
+    os.chdir(sys.path[0])  # make current dir = folder containing this script
+    setup_array = [x for x in setup_string.split("\n") if x.strip() != ""]  # dropping empty lines
+
+    h = len(setup_array)
+    w = len(setup_array[0])
+    board = Board(setup_array)
+
+    # Create tiles...
+    tiles = {}
+    for id in LETTERS:
+        if x := board.tile_loc.get(id):
+            upper_left, lower_right = x[0], x[-1]
+            r, c = upper_left
+            h, w = lower_right[0] - r + 1, lower_right[1] - c + 1
+            tiles[id] = Tile(id, r, c, h, w)
+
+    board.draw()
+    init_pickle = pickle.dumps((board, tiles))
+
+    initial_state = state(tiles)
+    solution_found = solve_BFS(initial_state, board, tiles)
+    move_list = []
+    if solution_found:
+        verts, id = solution_found
+        # Build the move_list from goal (v) back to parent...
+        while id:
+            v = verts[id]
+            move_list.insert(0, (v.tile_id, v.dir))
+            id = v.parent_id
+        print(f"BFS Graph: {len(verts)} vertices created")
+    else:
+        print("no solution")
+
+    if solution_found:
+        print("Solution found...")
+        print(f"{len(move_list)} moves.")
+        dd = {
+            "R": ">",
+            "L": "<",
+            "U": "^",
+            "D": "v",
+            "L2": "<<",
+            "R2": ">>",
+            "U2": "^^",
+            "D2": "vv",
+        }
+        for x, y in move_list:
+            print(f"{x}{dd[y]}", end=" ")
+        print()
+        board.draw()
+        board, tiles = pickle.loads(init_pickle)
+        animate_solution(board, tiles, move_list)
+
+    print("done")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,13 @@
 from collections import defaultdict, deque
 from random import randint
-from random import random
+
+# from random import random
 import pygame as pg
 import os
 import sys
-import pickle
+import pickle  # used to serialize the current board & tiles position.
 import string
+from time import perf_counter
 
 k = randint(1, 2)
 
@@ -20,7 +22,7 @@ MOVE_DICT = {
     "U2": (-2, 0),
     "D2": (2, 0),
 }
-# Each tuple in this dict is (dc, dr); i.e., distance in rows, columns measured in cells.
+# Each tuple in this dict is (dc, dr); i.e., distance in (rows, columns) measured in cells.
 BACKDICT = {"D": "U", "U": "D", "L": "R", "R": "L", "D2": "U2", "U2": "D2", "L2": "R2", "R2": "L2"}
 # Used to reverse a move.
 
@@ -364,6 +366,7 @@ def draw_tiles(
 
 def main() -> None:
     os.chdir(sys.path[0])  # make current dir = folder containing this script
+    start_time = perf_counter()
     setup_array = [x for x in setup_string.split("\n") if x.strip() != ""]  # dropping empty lines
 
     h = len(setup_array)
@@ -392,7 +395,7 @@ def main() -> None:
             v = verts[id]
             move_list.insert(0, (v.tile_id, v.dir))
             id = v.parent_id
-        print(f"BFS Graph: {len(verts)} vertices created")
+        print(f"BFS Graph: {len(verts)} positions examined.")
     else:
         print("no solution")
 
@@ -413,6 +416,8 @@ def main() -> None:
             print(f"{x}{dd[y]}", end=" ")
         print()
         board.draw()
+        print(f"Elapsed compute time: {perf_counter() - start_time} seconds")
+        print(f"Under Python 3.10 this is about 3.8 seconds")
         board, tiles = pickle.loads(init_pickle)
         animate_solution(board, tiles, move_list)
 
